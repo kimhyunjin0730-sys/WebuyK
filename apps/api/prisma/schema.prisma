@@ -1,0 +1,189 @@
+// We buy K — data model
+// Phase 2~5 entities. SQLite for local dev; switch provider to "postgresql"
+// in production without touching the model definitions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum DeliveryMode {
+  PICKUP
+  FORWARD
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PURCHASING
+  AWAITING_INBOUND
+  INSPECTING
+  READY_FOR_PICKUP
+  FORWARDED
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PRE_AUTHORIZED
+  CAPTURED
+  REFUNDED
+  FAILED
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String?  // nullable: OAuth-only users have no local password
+  displayName    String
+  countryCode    String?  // ISO-3166 alpha-2
+  role           Role     @default(USER)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  virtualAddress VirtualAddress?
+  backupAddress  BackupAddress?
+  cartItems      CartItem[]
+  orders         Order[]
+  oauthAccounts  OAuthAccount[]
+}
+
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String   // "google" | "kakao"
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model VirtualAddress {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mailboxNo String   @unique // e.g. "WBK-4F2A"
+  line1     String   // 보세창고/거점 주소
+  line2     String?
+  city      String
+  postal    String
+  createdAt DateTime @default(now())
+}
+
+model BackupAddress {
+  id         String  @id @default(cuid())
+  userId     String  @unique
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  line1      String
+  line2      String?
+  city       String
+  country    String
+  postalCode String
+  phone      String
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  sourceUrl String   @unique
+  vendor    String
+  title     String
+  imageUrl  String?
+  priceKrw  Int
+  rawJson   String   // serialized parsed payload for debugging
+  createdAt DateTime @default(now())
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+}
+
+model CartItem {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int
+  optionsNote String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Order {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  status          OrderStatus  @default(PENDING_PAYMENT)
+  deliveryMode    DeliveryMode
+  pickupLocation  String?
+  forwardJson     String?      // serialized international address snapshot
+  arrivalDate     DateTime?
+  itemTotalKrw    Int
+  handlingKrw     Int
+  surchargeKrw    Int
+  shippingKrw     Int
+  totalKrw        Int
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  items       OrderItem[]
+  inspections Inspection[]
+  payments    Payment[]
+  shipments   Shipment[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPriceKrw Int
+  optionsNote String?
+}
+
+model Shipment {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  trackingNo   String   @unique
+  carrier      String
+  receivedAt   DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model Inspection {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  photoUrl  String
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id            String         @id @default(cuid())
+  orderId       String
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider      String         // "portone" | "eximbay" | "mock"
+  providerRef   String?
+  amountKrw     Int
+  status        PaymentStatus
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}

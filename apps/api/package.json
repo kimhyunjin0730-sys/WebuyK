@@ -1,0 +1,56 @@
+{
+  "name": "@wbk/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "db:seed": "tsx prisma/seed.ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.4.4",
+    "@nestjs/core": "^10.4.4",
+    "@nestjs/jwt": "^10.2.0",
+    "@nestjs/passport": "^10.0.3",
+    "@nestjs/platform-express": "^10.4.4",
+    "@prisma/client": "^5.20.0",
+    "@wbk/shared": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-jwt": "^4.0.1",
+    "passport-kakao": "^1.0.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.4.5",
+    "@nestjs/schematics": "^10.1.4",
+    "@nestjs/testing": "^10.4.4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jest": "^29.5.13",
+    "@types/node": "^22.7.4",
+    "@types/passport-google-oauth20": "^2.0.16",
+    "@types/passport-jwt": "^4.0.1",
+    "jest": "^29.7.0",
+    "prisma": "^5.20.0",
+    "ts-jest": "^29.2.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.5.4"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "moduleNameMapper": {
+      "^@wbk/shared$": "<rootDir>/../../../packages/shared/src/index.ts"
+    }
+  }
+}

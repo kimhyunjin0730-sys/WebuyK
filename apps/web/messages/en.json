@@ -1,0 +1,72 @@
+{
+  "brand": {
+    "name": "We buy K",
+    "tagline": "The hybrid K-commerce concierge — buy from any Korean shop, pick up at the airport or ship home."
+  },
+  "nav": {
+    "home": "Home",
+    "order": "Place Order",
+    "cart": "Cart",
+    "orders": "My Orders",
+    "address": "Virtual Address",
+    "login": "Sign in",
+    "signup": "Sign up",
+    "logout": "Sign out",
+    "admin": "Admin"
+  },
+  "home": {
+    "heroTitle": "Shop Korea like a local. Receive it like magic.",
+    "heroSub": "Paste any Coupang, Naver, or Gmarket URL. We buy it, inspect it, and hand it to you at Incheon — or forward it to your home country.",
+    "ctaPrimary": "Get my virtual address",
+    "ctaSecondary": "How it works",
+    "stepsTitle": "Five steps. Zero stress.",
+    "step1": "Sign up — instant Korean virtual mailbox.",
+    "step2": "Paste a product URL — we parse it.",
+    "step3": "We buy & receive at our bonded hub.",
+    "step4": "Photo inspection arrives in your inbox.",
+    "step5": "Pick up at ICN, or forward worldwide."
+  },
+  "auth": {
+    "loginTitle": "Welcome back",
+    "signupTitle": "Create your account",
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Display name",
+    "country": "Country (ISO-2)",
+    "submitLogin": "Sign in",
+    "submitSignup": "Create account",
+    "switchToSignup": "No account yet? Sign up",
+    "switchToLogin": "Already a member? Sign in"
+  },
+  "address": {
+    "title": "Your virtual Korean address",
+    "intro": "Use this exact address (including the recipient code) when checking out at any Korean shop or asking a seller to ship to you."
+  },
+  "order": {
+    "title": "Place a proxy order",
+    "intro": "Paste the URL of any Korean shopping site product. We'll parse the price and add it to your cart with the all-in fee preview.",
+    "url": "Product URL",
+    "qty": "Quantity",
+    "addToCart": "Add to cart",
+    "tip": "Supported: Coupang, Naver, Gmarket, 11st, Kream"
+  },
+  "cart": {
+    "title": "Your cart",
+    "empty": "Your cart is empty.",
+    "mode": "Delivery mode",
+    "modePickup": "Pick up at ICN",
+    "modeForward": "Forward to my country",
+    "itemTotal": "Item total",
+    "handling": "Handling",
+    "surcharge": "Surcharge",
+    "shipping": "Shipping",
+    "total": "Total due",
+    "checkout": "Place order"
+  },
+  "orders": {
+    "title": "My orders",
+    "empty": "No orders yet.",
+    "status": "Status",
+    "total": "Total"
+  }
+}
