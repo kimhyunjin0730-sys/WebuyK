@@ -1,13 +1,12 @@
 // We buy K — data model
-// Phase 2~5 entities. SQLite for local dev; switch provider to "postgresql"
-// in production without touching the model definitions.
+// Phase 2~5 entities. MySQL/MariaDB for both local dev and production.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -100,7 +99,7 @@ model Product {
   title     String
   imageUrl  String?
   priceKrw  Int
-  rawJson   String   // serialized parsed payload for debugging
+  rawJson   String   @db.Text // serialized parsed payload for debugging
   createdAt DateTime @default(now())
 
   cartItems  CartItem[]
@@ -127,7 +126,7 @@ model Order {
   status          OrderStatus  @default(PENDING_PAYMENT)
   deliveryMode    DeliveryMode
   pickupLocation  String?
-  forwardJson     String?      // serialized international address snapshot
+  forwardJson     String?      @db.Text // serialized international address snapshot
   arrivalDate     DateTime?
   itemTotalKrw    Int
   handlingKrw     Int
