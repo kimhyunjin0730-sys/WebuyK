@@ -1,4 +1,5 @@
-import type { FeeBreakdown } from "./types";
+import type { FeeBreakdown, DeliveryMode } from "./types";
+export type { DeliveryMode };
 
 // Single source of truth for fees. Re-exported by API + Web so the cart UI
 // always agrees with what the backend will charge.
@@ -10,8 +11,6 @@ export const FEE_CONFIG = {
   FORWARD_BASE_KRW: 18_000, // baseline international shipping
   FORWARD_PER_10K_KRW: 1_500, // grows with item value (insurance proxy)
 } as const;
-
-export type DeliveryMode = "PICKUP" | "FORWARD";
 
 export function computeFee(
   itemPriceKrw: number,

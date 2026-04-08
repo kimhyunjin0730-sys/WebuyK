@@ -1,42 +1,23 @@
 // We buy K — data model
-// Phase 2~5 entities. MySQL/MariaDB for both local dev and production.
+// Phase 2~5 entities. SQLite for local dev (zero install); switch provider to
+// "mysql" in production. Production-only fields like @db.Text are no-ops on SQLite.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
-enum DeliveryMode {
-  PICKUP
-  FORWARD
-}
-
-enum OrderStatus {
-  PENDING_PAYMENT
-  PURCHASING
-  AWAITING_INBOUND
-  INSPECTING
-  READY_FOR_PICKUP
-  FORWARDED
-  COMPLETED
-  CANCELED
-}
-
-enum PaymentStatus {
-  PRE_AUTHORIZED
-  CAPTURED
-  REFUNDED
-  FAILED
-}
+// NOTE: SQLite has no enum support. We use plain String columns and validate
+// at the application layer (Zod schemas in @wbk/shared). Allowed values:
+//   Role:          USER | ADMIN
+//   DeliveryMode:  PICKUP | FORWARD
+//   OrderStatus:   PENDING_PAYMENT | PURCHASING | AWAITING_INBOUND | INSPECTING
+//                  | READY_FOR_PICKUP | FORWARDED | COMPLETED | CANCELED
+//   PaymentStatus: PRE_AUTHORIZED | CAPTURED | REFUNDED | FAILED
 
 model User {
   id             String   @id @default(cuid())
@@ -44,7 +25,7 @@ model User {
   passwordHash   String?  // nullable: OAuth-only users have no local password
   displayName    String
   countryCode    String?  // ISO-3166 alpha-2
-  role           Role     @default(USER)
+  role           String   @default("USER")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -99,7 +80,7 @@ model Product {
   title     String
   imageUrl  String?
   priceKrw  Int
-  rawJson   String   @db.Text // serialized parsed payload for debugging
+  rawJson   String   // serialized parsed payload for debugging
   createdAt DateTime @default(now())
 
   cartItems  CartItem[]
@@ -123,10 +104,10 @@ model Order {
   id              String       @id @default(cuid())
   userId          String
   user            User         @relation(fields: [userId], references: [id])
-  status          OrderStatus  @default(PENDING_PAYMENT)
-  deliveryMode    DeliveryMode
+  status          String       @default("PENDING_PAYMENT")
+  deliveryMode    String
   pickupLocation  String?
-  forwardJson     String?      @db.Text // serialized international address snapshot
+  forwardJson     String?      // serialized international address snapshot
   arrivalDate     DateTime?
   itemTotalKrw    Int
   handlingKrw     Int
@@ -182,7 +163,7 @@ model Payment {
   provider      String         // "portone" | "eximbay" | "mock"
   providerRef   String?
   amountKrw     Int
-  status        PaymentStatus
+  status        String
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
