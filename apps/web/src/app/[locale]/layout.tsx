@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { Header } from "@/components/header";
 import { AuthProvider } from "@/lib/auth-context";
+import { ToastProvider } from "@/lib/toast";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -26,8 +27,10 @@ export default async function LocaleLayout({
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <AuthProvider>
-            <Header />
-            <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+            <ToastProvider>
+              <Header />
+              <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+            </ToastProvider>
           </AuthProvider>
         </NextIntlClientProvider>
       </body>

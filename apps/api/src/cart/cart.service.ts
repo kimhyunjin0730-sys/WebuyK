@@ -23,6 +23,42 @@ export class CartService {
     });
   }
 
+  /**
+   * Bookmarklet path: the user's authenticated browser already pulled the
+   * product info from the vendor site (bypassing bot detection), so we trust
+   * the payload instead of re-fetching. Still upserts the Product so future
+   * orders can join on the same row.
+   */
+  async addParsed(
+    userId: string,
+    input: {
+      sourceUrl: string;
+      title: string;
+      priceKrw: number;
+      imageUrl?: string;
+      vendor?: string;
+      quantity: number;
+      optionsNote?: string;
+    },
+  ) {
+    const product = await this.products.upsertParsed({
+      sourceUrl: input.sourceUrl,
+      title: input.title,
+      priceKrw: input.priceKrw,
+      imageUrl: input.imageUrl,
+      vendor: input.vendor,
+    });
+    return this.prisma.cartItem.create({
+      data: {
+        userId,
+        productId: product.id,
+        quantity: input.quantity,
+        optionsNote: input.optionsNote,
+      },
+      include: { product: true },
+    });
+  }
+
   async listWithFees(userId: string, mode: DeliveryMode = "PICKUP") {
     const items = await this.prisma.cartItem.findMany({
       where: { userId },

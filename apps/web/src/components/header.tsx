@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { Globe, LogIn, LogOut, Package, ShoppingCart, User } from "lucide-react";
+import { Bookmark, Globe, LogIn, LogOut, Package, ShoppingCart } from "lucide-react";
 
 export function Header() {
   const t = useTranslations("nav");
@@ -46,6 +46,14 @@ export function Header() {
               </Link>
               <Link href={link("/address")} className="text-slate-600 hover:text-brand transition-colors">
                 {t("address")}
+              </Link>
+              <Link
+                href={link("/bookmarklet")}
+                className="flex items-center gap-1.5 rounded-full border border-brand-gold/40 bg-brand-gold/10 px-2.5 py-1 text-xs font-semibold text-brand-gold hover:bg-brand-gold/20 transition-colors"
+                title={t("bookmarklet")}
+              >
+                <Bookmark className="h-3.5 w-3.5" />
+                {t("bookmarklet")}
               </Link>
             </>
           )}

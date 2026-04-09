@@ -13,6 +13,17 @@ import { CurrentUser, CurrentUserPayload } from "../auth/current-user.decorator"
 import { CartService } from "./cart.service";
 import { ZodValidate } from "../common/zod.pipe";
 import { AddCartItemSchema, type DeliveryMode } from "@wbk/shared";
+import { z } from "zod";
+
+const ParsedCartItemSchema = z.object({
+  sourceUrl: z.string().url(),
+  title: z.string().min(1).max(300),
+  priceKrw: z.number().int().positive(),
+  imageUrl: z.string().url().optional(),
+  vendor: z.string().max(50).optional(),
+  quantity: z.number().int().positive().default(1),
+  optionsNote: z.string().max(500).optional(),
+});
 
 @UseGuards(JwtAuthGuard)
 @Controller("cart")
@@ -40,6 +51,20 @@ export class CartController {
       body.quantity,
       body.optionsNote,
     );
+  }
+
+  /**
+   * Bookmarklet endpoint. The browser already extracted the product info on
+   * the vendor site (bypassing bot detection), so we accept the parsed
+   * payload directly instead of re-fetching the URL on the backend.
+   */
+  @Post("parsed")
+  addParsed(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body(new ZodValidate(ParsedCartItemSchema))
+    body: z.infer<typeof ParsedCartItemSchema>,
+  ) {
+    return this.cart.addParsed(user.userId, body);
   }
 
   @Delete(":id")

@@ -1,5 +1,6 @@
 import { Logger, Module } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
+import { PaymentsController } from "./payments.controller";
 import { MOCK_GATEWAY, MockGateway } from "./mock.gateway";
 import { PortoneGateway } from "./portone.gateway";
 
@@ -23,6 +24,7 @@ const gatewayProvider = {
 };
 
 @Module({
+  controllers: [PaymentsController],
   providers: [PaymentsService, gatewayProvider],
   exports: [PaymentsService],
 })
