@@ -16,6 +16,25 @@ export async function api<T = unknown>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  // Demonstration Mock Logic
+  const isMock = process.env.NEXT_PUBLIC_MOCK_API === "true";
+  if (isMock) {
+    await new Promise(resolve => setTimeout(resolve, 600)); // Simulate lag
+    if (path === "/me/virtual-address") {
+      return {
+        mailboxNo: "WBK-7749",
+        formattedLines: [
+          "Recipients Name: (Your Name) #WBK-7749",
+          "Address: 255-buhang-ro",
+          "City: Gimcheon-si",
+          "Region: Gyeongsangbuk-do",
+          "Postcode: 39660",
+          "Country: South Korea"
+        ]
+      } as unknown as T;
+    }
+  }
+
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
   if (typeof window !== "undefined") {
