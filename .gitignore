@@ -3,6 +3,7 @@ dist
 .next
 .env
 .env.local
+client_secret_*.json
 *.db
 *.db-journal
 .DS_Store

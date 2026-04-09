@@ -1,23 +1,21 @@
 // We buy K — data model
-// Phase 2~5 entities. SQLite for local dev (zero install); switch provider to
-// "mysql" in production. Production-only fields like @db.Text are no-ops on SQLite.
+// Phase 2~5 entities on MySQL 8. Status/role columns stay as plain strings
+// (validated at the app layer via Zod in @wbk/shared) so we can evolve allowed
+// values without a migration. Allowed values:
+//   Role:          USER | ADMIN
+//   DeliveryMode:  PICKUP | FORWARD
+//   OrderStatus:   PENDING_PAYMENT | PURCHASING | AWAITING_INBOUND | INSPECTING
+//                  | READY_FOR_PICKUP | FORWARDED | COMPLETED | CANCELED
+//   PaymentStatus: PRE_AUTHORIZED | CAPTURED | REFUNDED | FAILED
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
-
-// NOTE: SQLite has no enum support. We use plain String columns and validate
-// at the application layer (Zod schemas in @wbk/shared). Allowed values:
-//   Role:          USER | ADMIN
-//   DeliveryMode:  PICKUP | FORWARD
-//   OrderStatus:   PENDING_PAYMENT | PURCHASING | AWAITING_INBOUND | INSPECTING
-//                  | READY_FOR_PICKUP | FORWARDED | COMPLETED | CANCELED
-//   PaymentStatus: PRE_AUTHORIZED | CAPTURED | REFUNDED | FAILED
 
 model User {
   id             String   @id @default(cuid())
@@ -80,7 +78,7 @@ model Product {
   title     String
   imageUrl  String?
   priceKrw  Int
-  rawJson   String   // serialized parsed payload for debugging
+  rawJson   String   @db.Text // serialized parsed payload for debugging
   createdAt DateTime @default(now())
 
   cartItems  CartItem[]
@@ -107,7 +105,7 @@ model Order {
   status          String       @default("PENDING_PAYMENT")
   deliveryMode    String
   pickupLocation  String?
-  forwardJson     String?      // serialized international address snapshot
+  forwardJson     String?      @db.Text // serialized international address snapshot
   arrivalDate     DateTime?
   itemTotalKrw    Int
   handlingKrw     Int

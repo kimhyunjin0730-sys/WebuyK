@@ -10,6 +10,10 @@ export class PaymentsService {
     @Inject(MOCK_GATEWAY) private readonly gateway: PaymentGateway,
   ) {}
 
+  private get providerName(): string {
+    return process.env.PORTONE_API_KEY ? "portone" : "mock";
+  }
+
   async preAuthorize(orderId: string, amountKrw: number) {
     const { providerRef } = await this.gateway.preAuthorize({
       orderId,
@@ -18,7 +22,7 @@ export class PaymentsService {
     return this.prisma.payment.create({
       data: {
         orderId,
-        provider: "mock",
+        provider: this.providerName,
         providerRef,
         amountKrw,
         status: "PRE_AUTHORIZED",
