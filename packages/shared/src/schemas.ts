@@ -16,7 +16,22 @@ export type LoginInput = z.infer<typeof LoginSchema>;
 
 export const ParseUrlSchema = z.object({
   url: z.string().url(),
+  // "fast" = lightweight fetch + cheerio (default, current behavior)
+  // "playwright" = headless browser, slower but works for bot-protected sites
+  mode: z.enum(["fast", "playwright"]).optional().default("fast"),
 });
+export type ParseUrlInput = z.infer<typeof ParseUrlSchema>;
+
+// Vision mode: client uploads a screenshot, server asks Claude vision to
+// extract product fields. `imageBase64` is the raw base64 (no data: prefix).
+export const ParseImageSchema = z.object({
+  imageBase64: z.string().min(1),
+  mimeType: z
+    .enum(["image/png", "image/jpeg", "image/webp", "image/gif"])
+    .default("image/png"),
+  sourceUrl: z.string().url().optional(),
+});
+export type ParseImageInput = z.infer<typeof ParseImageSchema>;
 
 export const AddCartItemSchema = z.object({
   sourceUrl: z.string().url(),

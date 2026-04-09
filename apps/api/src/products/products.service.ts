@@ -1,12 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { ProductParser } from "./product-parser";
+import { VisionParser } from "./vision-parser";
 
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly parser: ProductParser,
+    private readonly vision: VisionParser,
   ) {}
 
   /**
@@ -16,18 +18,22 @@ export class ProductsService {
    */
   private static readonly CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
-  async ingestByUrl(sourceUrl: string) {
-    const cached = await this.prisma.product.findUnique({
-      where: { sourceUrl },
-    });
-    if (
-      cached &&
-      Date.now() - cached.createdAt.getTime() < ProductsService.CACHE_TTL_MS
-    ) {
-      return cached;
+  async ingestByUrl(sourceUrl: string, mode: "fast" | "playwright" = "fast") {
+    // Cache only the fast-mode result; precise mode is opt-in and we want
+    // it to always re-fetch so users can retry blocked sites on demand.
+    if (mode === "fast") {
+      const cached = await this.prisma.product.findUnique({
+        where: { sourceUrl },
+      });
+      if (
+        cached &&
+        Date.now() - cached.createdAt.getTime() < ProductsService.CACHE_TTL_MS
+      ) {
+        return cached;
+      }
     }
 
-    const parsed = await this.parser.parse(sourceUrl);
+    const parsed = await this.parser.parse(sourceUrl, mode);
     const data = {
       sourceUrl: parsed.sourceUrl,
       vendor: parsed.vendor,
@@ -50,6 +56,26 @@ export class ProductsService {
    * extracted from the user's authenticated browser session) and upserts on
    * sourceUrl so the same product across cart adds shares one row.
    */
+  /**
+   * Vision (screenshot) entry point. Sends the image to Claude, then upserts
+   * the result keyed by sourceUrl (or a generated vision:// pseudo-url when
+   * the user did not provide a source link).
+   */
+  async ingestByImage(input: {
+    imageBase64: string;
+    mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+    sourceUrl?: string;
+  }) {
+    const parsed = await this.vision.parseImage(input);
+    return this.upsertParsed({
+      sourceUrl: parsed.sourceUrl,
+      title: parsed.title,
+      priceKrw: parsed.priceKrw,
+      imageUrl: parsed.imageUrl,
+      vendor: parsed.vendor,
+    });
+  }
+
   async upsertParsed(input: {
     sourceUrl: string;
     title: string;

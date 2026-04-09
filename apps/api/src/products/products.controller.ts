@@ -2,7 +2,12 @@ import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { ProductsService } from "./products.service";
 import { ZodValidate } from "../common/zod.pipe";
-import { ParseUrlSchema } from "@wbk/shared";
+import {
+  ParseUrlSchema,
+  ParseImageSchema,
+  type ParseUrlInput,
+  type ParseImageInput,
+} from "@wbk/shared";
 
 @Controller("products")
 export class ProductsController {
@@ -15,7 +20,13 @@ export class ProductsController {
 
   @UseGuards(JwtAuthGuard)
   @Post("parse")
-  parse(@Body(new ZodValidate(ParseUrlSchema)) body: { url: string }) {
-    return this.products.ingestByUrl(body.url);
+  parse(@Body(new ZodValidate(ParseUrlSchema)) body: ParseUrlInput) {
+    return this.products.ingestByUrl(body.url, body.mode);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("parse-image")
+  parseImage(@Body(new ZodValidate(ParseImageSchema)) body: ParseImageInput) {
+    return this.products.ingestByImage(body);
   }
 }

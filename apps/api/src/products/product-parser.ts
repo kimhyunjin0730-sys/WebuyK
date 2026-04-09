@@ -1,5 +1,11 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+} from "@nestjs/common";
 import * as cheerio from "cheerio";
+import type { Browser } from "playwright";
 import type { ParsedProduct } from "@wbk/shared";
 
 /**
@@ -27,13 +33,6 @@ const BLOCKED_VENDORS: { match: string; name: string }[] = [
   { match: "gmarket", name: "G마켓" },
 ];
 
-function blockedHint(name: string): string {
-  return (
-    `${name}은(는) 봇 차단 정책 때문에 URL 자동 인식이 불가능합니다. ` +
-    `${name} 상품을 담으려면 /bookmarklet 페이지의 북마클릿을 설치해 사용해주세요.`
-  );
-}
-
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
@@ -44,10 +43,24 @@ interface JsonLdProduct {
 }
 
 @Injectable()
-export class ProductParser {
+export class ProductParser implements OnModuleDestroy {
   private readonly logger = new Logger(ProductParser.name);
+  // Lazily-launched shared browser. Reused across requests so we only pay
+  // the chromium startup cost once. null when Playwright isn't installed
+  // (e.g. on Vercel serverless) — fast mode still works.
+  private browser: Browser | null = null;
 
-  async parse(rawUrl: string): Promise<ParsedProduct> {
+  async onModuleDestroy() {
+    if (this.browser) {
+      await this.browser.close().catch(() => undefined);
+      this.browser = null;
+    }
+  }
+
+  async parse(
+    rawUrl: string,
+    mode: "fast" | "playwright" = "fast",
+  ): Promise<ParsedProduct> {
     let url: URL;
     try {
       url = new URL(rawUrl);
@@ -56,47 +69,68 @@ export class ProductParser {
     }
 
     const host = url.hostname.toLowerCase();
-    const blocked = BLOCKED_VENDORS.find((b) => host.includes(b.match));
-    if (blocked) {
-      throw new BadRequestException(blockedHint(blocked.name));
-    }
-    const vendor = this.detectVendor(host);
-    if (!vendor) {
-      throw new BadRequestException(
-        `지원하지 않는 사이트입니다: ${url.hostname}. 지원 목록: 네이버 스마트스토어/쇼핑, Kream, 11번가. ` +
-          `쿠팡·G마켓은 /bookmarklet 페이지의 북마클릿을 사용해주세요.`,
-      );
+    const isBlockedVendor = BLOCKED_VENDORS.some((b) => host.includes(b.match));
+    const vendor =
+      this.detectVendor(host) ||
+      (isBlockedVendor ? "Search-Optimized Site" : "General");
+
+    // Playwright path: real headless browser. Used for bot-protected sites
+    // (Coupang, G마켓) or whenever the user explicitly chooses precise mode.
+    if (mode === "playwright") {
+      return this.parseWithPlaywright(rawUrl, vendor);
     }
 
-    const html = await this.fetchHtml(rawUrl, vendor);
+    let html: string;
+    try {
+      if (isBlockedVendor) {
+        this.logger.log(
+          `Fast mode hit blocked vendor ${vendor}; suggesting playwright/vision`,
+        );
+        throw new BadRequestException(
+          `${vendor}은(는) 봇 차단 정책 때문에 빠른 모드로 인식할 수 없습니다. ` +
+            `정밀(Playwright) 모드 또는 스크린샷 모드를 사용해주세요.`,
+        );
+      }
+      html = await this.fetchHtml(rawUrl, vendor);
+    } catch (e) {
+      throw e;
+    }
+
     const $ = cheerio.load(html);
 
     const jsonLd = this.extractJsonLd($);
     const og = {
-      title: $('meta[property="og:title"]').attr("content"),
-      image: $('meta[property="og:image"]').attr("content"),
+      title: $('meta[property="og:title"]').attr("content") || $('meta[name="twitter:title"]').attr("content"),
+      image: $('meta[property="og:image"]').attr("content") || $('meta[name="twitter:image"]').attr("content"),
       price: $(
-        'meta[property="og:price:amount"], meta[property="product:price:amount"]',
+        'meta[property="og:price:amount"], meta[property="product:price:amount"], meta[name="product:price:amount"]',
       ).attr("content"),
     };
+
+    // Specific vendor selectors (fallback)
+    let vendorPrice: string | null = null;
+    if (vendor === "Olive Young") {
+      vendorPrice = $(".price-2 .tx_cur").first().text().trim() || 
+                    $(".price .tx_cur").first().text().trim() ||
+                    $(".price-1 .tx_cur").first().text().trim();
+    } else if (vendor === "Naver") {
+      vendorPrice = $('meta[property="product:price:amount"]').attr("content") || 
+                    $(".price_main").first().text().trim();
+    }
 
     const rawTitle =
       jsonLd?.name ||
       og.title ||
+      $("h1").first().text().trim() ||
       $("title").text().trim() ||
       null;
     const imageUrl = jsonLd?.image || og.image || undefined;
-    const rawPrice = jsonLd?.priceRaw ?? og.price ?? null;
+    const rawPrice = jsonLd?.priceRaw ?? og.price ?? vendorPrice ?? this.trySearchPrice($) ?? null;
     const priceKrw = rawPrice != null ? this.parseKrw(rawPrice) : null;
 
-    if (!rawTitle || !priceKrw) {
-      this.logger.warn(
-        `Parse failed for ${vendor} ${rawUrl}: title=${!!rawTitle} price=${priceKrw}`,
-      );
-      throw new BadRequestException(
-        `${vendor} 상품 정보 자동 인식에 실패했습니다 (${!rawTitle ? "제목" : "가격"} 추출 실패). ` +
-          `상품 페이지가 봇 차단되었거나 메타 태그가 없을 수 있습니다.`,
-      );
+
+    if (!rawTitle) {
+      throw new BadRequestException("상품명을 찾을 수 없습니다. 수동으로 입력해 주세요.");
     }
 
     return {
@@ -104,9 +138,17 @@ export class ProductParser {
       vendor,
       title: this.cleanTitle(rawTitle),
       imageUrl,
-      priceKrw,
+      priceKrw: priceKrw || 0, // Default to 0 instead of failing, user can fix it manually
     };
   }
+
+  private trySearchPrice($: cheerio.CheerioAPI): string | null {
+    // Look for common price patterns in text if meta tags missing
+    const text = $("body").text().slice(0, 10000); // Check first 10k chars
+    const match = text.match(/(\d{1,3}(,\d{3})*)\s?원/);
+    return match ? match[1] : null;
+  }
+
 
   private async fetchHtml(rawUrl: string, vendor: string): Promise<string> {
     try {
@@ -203,12 +245,145 @@ export class ProductParser {
     return s.replace(/\s+/g, " ").trim().slice(0, 200);
   }
 
+  /**
+   * Headless-browser path. Spins up a real Chromium, navigates to the URL,
+   * waits for network idle, then extracts JSON-LD / OG / vendor selectors
+   * from the rendered DOM. Reuses one browser process across requests.
+   *
+   * Requires the `playwright` dependency and (in production) an environment
+   * where Chromium can be installed — Render/Fly with the Playwright base
+   * image, NOT Vercel serverless.
+   */
+  private async parseWithPlaywright(
+    rawUrl: string,
+    vendor: string,
+  ): Promise<ParsedProduct> {
+    const browser = await this.getBrowser();
+    const context = await browser.newContext({
+      userAgent: UA,
+      locale: "ko-KR",
+      viewport: { width: 1280, height: 800 },
+      extraHTTPHeaders: {
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
+    });
+    const page = await context.newPage();
+    try {
+      await page.goto(rawUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
+      // Best-effort wait for vendor-specific selectors so dynamic prices render.
+      await page
+        .waitForLoadState("networkidle", { timeout: 8_000 })
+        .catch(() => undefined);
+
+      const html = await page.content();
+      const $ = cheerio.load(html);
+      const jsonLd = this.extractJsonLd($);
+      const og = {
+        title:
+          $('meta[property="og:title"]').attr("content") ||
+          $('meta[name="twitter:title"]').attr("content"),
+        image:
+          $('meta[property="og:image"]').attr("content") ||
+          $('meta[name="twitter:image"]').attr("content"),
+        price: $(
+          'meta[property="og:price:amount"], meta[property="product:price:amount"], meta[name="product:price:amount"]',
+        ).attr("content"),
+      };
+
+      // Vendor-specific DOM selectors (only used when JSON-LD/OG miss)
+      let vendorTitle: string | null = null;
+      let vendorPrice: string | null = null;
+      let vendorImage: string | null = null;
+      if (vendor === "Coupang") {
+        vendorTitle = $("h1.prod-buy-header__title").first().text().trim() || null;
+        vendorPrice =
+          $(".total-price strong").first().text().trim() ||
+          $(".prod-price .total-price").first().text().trim() ||
+          null;
+        vendorImage = $(".prod-image__detail").attr("src") || null;
+      } else if (vendor === "Gmarket") {
+        vendorTitle = $(".itemtit").first().text().trim() || null;
+        vendorPrice = $(".price_real").first().text().trim() || null;
+      } else if (vendor === "Naver") {
+        vendorPrice =
+          $('meta[property="product:price:amount"]').attr("content") ||
+          $("._1LY7DqCnwR").first().text().trim() ||
+          null;
+      } else if (vendor === "Olive Young") {
+        vendorPrice =
+          $(".price-2 .tx_cur").first().text().trim() ||
+          $(".price .tx_cur").first().text().trim() ||
+          null;
+      }
+
+      const rawTitle =
+        jsonLd?.name ||
+        og.title ||
+        vendorTitle ||
+        $("h1").first().text().trim() ||
+        $("title").text().trim() ||
+        null;
+      const imageUrl =
+        jsonLd?.image || og.image || vendorImage || undefined;
+      const rawPrice =
+        jsonLd?.priceRaw ?? og.price ?? vendorPrice ?? this.trySearchPrice($);
+      const priceKrw = rawPrice != null ? this.parseKrw(rawPrice) : null;
+
+      if (!rawTitle) {
+        throw new BadRequestException(
+          "정밀 모드에서도 상품명을 찾지 못했습니다. 스크린샷 모드를 시도해주세요.",
+        );
+      }
+      return {
+        sourceUrl: rawUrl,
+        vendor,
+        title: this.cleanTitle(rawTitle),
+        imageUrl: imageUrl ?? undefined,
+        priceKrw: priceKrw || 0,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "unknown";
+      this.logger.warn(`Playwright parse failed for ${rawUrl}: ${msg}`);
+      throw new BadRequestException(
+        `정밀 모드 인식 실패 (${msg}). 스크린샷 모드를 시도해보세요.`,
+      );
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  }
+
+  private async getBrowser(): Promise<Browser> {
+    if (this.browser) return this.browser;
+    // Lazy-import so the module still loads on environments without
+    // playwright installed (e.g. local dev that hasn't run pnpm install yet).
+    let chromium: typeof import("playwright").chromium;
+    try {
+      ({ chromium } = await import("playwright"));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "unknown";
+      throw new BadRequestException(
+        `정밀 모드는 Playwright가 설치된 서버에서만 동작합니다 (${msg}).`,
+      );
+    }
+    this.browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    });
+    return this.browser;
+  }
+
   private detectVendor(host: string): string | null {
     const h = host.toLowerCase();
-    // Coupang and Gmarket intentionally excluded — use the bookmarklet.
     if (h.includes("naver") || h.includes("smartstore")) return "Naver";
     if (h.includes("11st")) return "11st";
     if (h.includes("kream")) return "Kream";
+    if (h.includes("oliveyoung")) return "Olive Young";
+    if (h.includes("coupang")) return "Coupang";
+    if (h.includes("gmarket")) return "Gmarket";
     return null;
   }
 }
+

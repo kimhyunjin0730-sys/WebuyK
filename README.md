@@ -88,6 +88,40 @@ http://localhost:4000/api/auth/mock?provider=google&email=alice@wbk.test&name=Al
 - OAuth 전용 가입 사용자는 `passwordHash`가 `null`이라 이메일+비밀번호 로그인이 불가합니다. 같은 이메일로 비밀번호 로그인을 시도하면 `Invalid credentials`로 응답합니다 (어느 계정이 OAuth-only인지 노출하지 않기 위함).
 - 프로덕션에서는 callback URL을 HTTPS로 바꾸고 `JWT_SECRET`을 반드시 강한 값으로 교체하세요.
 
+## 상품 인식 모드 (3가지)
+
+`/order` 페이지에서 사용자가 탭으로 선택할 수 있습니다.
+
+| 모드 | 엔드포인트 | 동작 | 비용 | 차단 사이트 |
+|---|---|---|---|---|
+| **빠른 URL** | `POST /api/products/parse` (`mode=fast`) | fetch + cheerio + JSON-LD/OG | 0 | ❌ |
+| **정밀 URL** | `POST /api/products/parse` (`mode=playwright`) | 헤드리스 Chromium 렌더링 후 추출 | 서버 자원 | ✅ |
+| **스크린샷** | `POST /api/products/parse-image` | Claude Sonnet vision으로 이미지 → 구조화 추출 | ~$0.01/req | ✅ |
+
+### Playwright 모드 배포 (Render)
+
+Vercel serverless에서는 chromium 바이너리 크기 제한으로 못 돌리므로 **API만** Render(또는 Fly.io)로 분리합니다. Web(Next.js)은 Vercel 그대로.
+
+1. 프로젝트 루트의 [render.yaml](render.yaml) 확인
+2. https://dashboard.render.com → New → Blueprint → 이 레포 연결
+3. 환경변수 입력 (`sync: false` 항목들):
+   - `DATABASE_URL` — MySQL connection string
+   - `JWT_SECRET` — 강한 랜덤 문자열
+   - `WEB_ORIGIN` — `https://your-vercel-app.vercel.app`
+   - `ANTHROPIC_API_KEY` — https://console.anthropic.com/settings/keys 에서 발급
+   - (선택) `GOOGLE_*`, `KAKAO_*` OAuth 키
+4. Deploy → 발급된 URL을 Vercel의 `NEXT_PUBLIC_API_URL`에 등록
+
+> Dockerfile은 `mcr.microsoft.com/playwright:v1.47.0-jammy` 베이스 이미지를 사용해 Chromium + 의존성을 미리 포함합니다.
+
+### Vision 모드 환경변수
+
+```
+ANTHROPIC_API_KEY=sk-ant-api03-...
+```
+
+키는 **절대 코드에 하드코딩하거나 채팅에 붙여넣지 말고** Render/Vercel 대시보드 또는 `apps/api/.env`에만 두세요.
+
 ## 수수료 엔진
 
 `apps/api/src/fees/fee.engine.ts`에서 단일 source-of-truth로 관리. Jest 단위 테스트 포함.
