@@ -1,0 +1,40 @@
+# Files to ignore when uploading source to Cloud Build.
+# Keeps the build context small and builds fast.
+
+.git/
+.gitignore
+
+node_modules/
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/.turbo/
+
+# Env / secrets — never upload
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Docs & scratch files not needed in the container
+*.md
+!README.md
+해야할 것.md
+Technical_Implementation_Plan_We_buy_K.md
+
+# SQLite dev DB
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

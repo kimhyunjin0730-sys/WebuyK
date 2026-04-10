@@ -98,21 +98,28 @@ http://localhost:4000/api/auth/mock?provider=google&email=alice@wbk.test&name=Al
 | **정밀 URL** | `POST /api/products/parse` (`mode=playwright`) | 헤드리스 Chromium 렌더링 후 추출 | 서버 자원 | ✅ |
 | **스크린샷** | `POST /api/products/parse-image` | Claude Sonnet vision으로 이미지 → 구조화 추출 | ~$0.01/req | ✅ |
 
-### Playwright 모드 배포 (Render)
+### Playwright 모드 배포 (Google Cloud Run)
 
-Vercel serverless에서는 chromium 바이너리 크기 제한으로 못 돌리므로 **API만** Render(또는 Fly.io)로 분리합니다. Web(Next.js)은 Vercel 그대로.
+Vercel serverless에서는 chromium 바이너리 크기 제한으로 못 돌리므로 **API만** Cloud Run으로 분리합니다. Web(Next.js)은 Vercel 그대로.
 
-1. 프로젝트 루트의 [render.yaml](render.yaml) 확인
-2. https://dashboard.render.com → New → Blueprint → 이 레포 연결
-3. 환경변수 입력 (`sync: false` 항목들):
-   - `DATABASE_URL` — MySQL connection string
-   - `JWT_SECRET` — 강한 랜덤 문자열
-   - `WEB_ORIGIN` — `https://your-vercel-app.vercel.app`
-   - `ANTHROPIC_API_KEY` — https://console.anthropic.com/settings/keys 에서 발급
-   - (선택) `GOOGLE_*`, `KAKAO_*` OAuth 키
-4. Deploy → 발급된 URL을 Vercel의 `NEXT_PUBLIC_API_URL`에 등록
+Cloud Run 무료 한도: 월 200만 요청 + 360K GiB-초 + 180K vCPU-초. 개인 프로젝트 규모는 **$0**.
 
-> Dockerfile은 `mcr.microsoft.com/playwright:v1.47.0-jammy` 베이스 이미지를 사용해 Chromium + 의존성을 미리 포함합니다.
+```bash
+gcloud run deploy wbk-api \
+  --source . \
+  --dockerfile apps/api/Dockerfile \
+  --region asia-northeast3 \
+  --memory 2Gi --cpu 1 \
+  --min-instances 0 --max-instances 3 \
+  --allow-unauthenticated \
+  --update-secrets DATABASE_URL=DATABASE_URL:latest,JWT_SECRET=JWT_SECRET:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,WEB_ORIGIN=WEB_ORIGIN:latest
+```
+
+자세한 단계별 가이드는 [해야할 것.md](해야할 것.md) 참고.
+
+> Dockerfile은 `mcr.microsoft.com/playwright:v1.47.0-jammy` 베이스 이미지를 사용해 Chromium + 의존성을 미리 포함합니다. Cloud Run 주입 `$PORT`(기본 8080)를 자동으로 사용합니다.
+>
+> **⚠️ 비용 폭탄 방지**: `--max-instances 3` 필수, Billing Budget Alert 설정 권장.
 
 ### Vision 모드 환경변수
 

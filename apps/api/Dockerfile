@@ -1,5 +1,7 @@
-# Multi-stage Dockerfile for the NestJS API on Render/Fly.io.
+# Multi-stage Dockerfile for the NestJS API on Google Cloud Run.
 # Includes Playwright + Chromium for the "정밀 URL" parser mode.
+# Cloud Run injects PORT env var at runtime (default 8080) — main.ts
+# already reads process.env.PORT so no code change needed.
 
 FROM mcr.microsoft.com/playwright:v1.47.0-jammy AS base
 WORKDIR /app
@@ -31,5 +33,6 @@ COPY --from=build /app/apps/api/prisma ./apps/api/prisma
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 
 WORKDIR /app/apps/api
-EXPOSE 4000
+EXPOSE 8080
+ENV PORT=8080
 CMD ["node", "dist/main.js"]
