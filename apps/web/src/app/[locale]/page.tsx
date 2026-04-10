@@ -1,110 +1,274 @@
+"use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
-import { ArrowRight, Box, Camera, MapPin, Search, UserPlus } from "lucide-react";
+import { useLocale } from "next-intl";
+import { ShoppingCart, Star, Heart } from "lucide-react";
 
-export default async function HomePage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  const t = await getTranslations("home");
-  const tBrand = await getTranslations("brand");
+const CATEGORIES = [
+  { id: "all", label: "All" },
+  { id: "food", label: "Food" },
+  { id: "health", label: "Health & Wellness" },
+  { id: "fashion", label: "Fashion" },
+  { id: "crafts", label: "Crafts" },
+];
 
-  const steps = [
-    { icon: <UserPlus className="h-6 w-6" />, text: t("step1") },
-    { icon: <Search className="h-6 w-6" />, text: t("step2") },
-    { icon: <Box className="h-6 w-6" />, text: t("step3") },
-    { icon: <Camera className="h-6 w-6" />, text: t("step4") },
-    { icon: <MapPin className="h-6 w-6" />, text: t("step5") },
-  ];
+interface Product {
+  id: string;
+  title: string;
+  titleEn: string;
+  price: number;
+  originalPrice?: number;
+  discount?: number;
+  image: string;
+  category: string;
+  rating: number;
+  reviews: number;
+}
+
+const PRODUCTS: Product[] = [
+  {
+    id: "1",
+    title: "프리미엄 고려홍삼",
+    titleEn: "Premium Korean Red Ginseng",
+    price: 45000,
+    originalPrice: 61000,
+    discount: 26,
+    image: "https://images.unsplash.com/photo-1567922045116-2a00fae2ed03?w=400&h=400&fit=crop",
+    category: "health",
+    rating: 4.8,
+    reviews: 234,
+  },
+  {
+    id: "2",
+    title: "전통 김치 선물세트",
+    titleEn: "Traditional Kimchi Gift Set",
+    price: 38000,
+    originalPrice: 46000,
+    discount: 18,
+    image: "https://images.unsplash.com/photo-1583224994076-0be952070655?w=400&h=400&fit=crop",
+    category: "food",
+    rating: 4.9,
+    reviews: 512,
+  },
+  {
+    id: "3",
+    title: "모던 한복 세트",
+    titleEn: "Modern Hanbok Set",
+    price: 120000,
+    originalPrice: 154000,
+    discount: 22,
+    image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&h=400&fit=crop",
+    category: "fashion",
+    rating: 4.7,
+    reviews: 89,
+  },
+  {
+    id: "4",
+    title: "한국 전통 도자기",
+    titleEn: "Korean Traditional Pottery",
+    price: 85000,
+    image: "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=400&h=400&fit=crop",
+    category: "crafts",
+    rating: 4.6,
+    reviews: 67,
+  },
+  {
+    id: "5",
+    title: "제주 감귤 초콜릿",
+    titleEn: "Jeju Tangerine Chocolate",
+    price: 18000,
+    originalPrice: 24000,
+    discount: 25,
+    image: "https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=400&h=400&fit=crop",
+    category: "food",
+    rating: 4.5,
+    reviews: 321,
+  },
+  {
+    id: "6",
+    title: "한방 스킨케어 세트",
+    titleEn: "Herbal Skincare Collection",
+    price: 67000,
+    originalPrice: 89000,
+    discount: 25,
+    image: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&h=400&fit=crop",
+    category: "health",
+    rating: 4.8,
+    reviews: 178,
+  },
+  {
+    id: "7",
+    title: "프리미엄 한우 선물세트",
+    titleEn: "Premium Hanwoo Beef Gift Set",
+    price: 150000,
+    originalPrice: 190000,
+    discount: 21,
+    image: "https://images.unsplash.com/photo-1558030006-450675393462?w=400&h=400&fit=crop",
+    category: "food",
+    rating: 4.9,
+    reviews: 156,
+  },
+  {
+    id: "8",
+    title: "자개 보석함",
+    titleEn: "Mother of Pearl Jewelry Box",
+    price: 95000,
+    image: "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=400&fit=crop",
+    category: "crafts",
+    rating: 4.7,
+    reviews: 43,
+  },
+];
+
+function formatKrw(n: number): string {
+  return "₩" + n.toLocaleString("ko-KR");
+}
+
+export default function HomePage() {
+  const locale = useLocale();
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [liked, setLiked] = useState<Set<string>>(new Set());
+
+  const filtered =
+    activeCategory === "all"
+      ? PRODUCTS
+      : PRODUCTS.filter((p) => p.category === activeCategory);
+
+  const toggleLike = (id: string) => {
+    setLiked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
-    <div className="space-y-20 pb-20">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-premium px-8 py-20 text-white shadow-2xl transition-all hover:shadow-brand/20">
-        <div className="relative z-10 max-w-3xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-brand-accent/20 px-4 py-1.5 text-sm font-medium text-brand-accent border border-brand-accent/30">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-accent opacity-75"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-accent"></span>
-            </span>
-            {tBrand("tagline")}
-          </div>
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl">
-            {t("heroTitle").split(".").map((part, i) => (
-              <span key={i} className={i === 1 ? "block text-brand-gold" : "block"}>
-                {part}{i === 0 ? "." : ""}
-              </span>
-            ))}
+    <div className="space-y-8 pb-20">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">
+            한국 특산품 마켓
           </h1>
-          <p className="mt-8 text-xl text-slate-300 leading-relaxed max-w-2xl">
-            {t("heroSub")}
+          <p className="mt-1 text-sm text-slate-500">
+            Korean Specialty Marketplace
           </p>
-          <div className="mt-12 flex flex-wrap gap-4">
-            <Link
-              href={`/${locale}/signup`}
-              className="group flex items-center gap-2 rounded-full bg-brand-gold px-8 py-4 text-lg font-bold text-brand hover:scale-105 transition-all shadow-lg shadow-brand-gold/20"
-            >
-              {t("ctaPrimary")}
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link
-              href={`/${locale}/order`}
-              className="flex items-center gap-2 rounded-full border border-slate-700 bg-white/5 px-8 py-4 text-lg font-semibold hover:bg-white/10 transition-all backdrop-blur-sm"
-            >
-              {t("ctaSecondary")}
-            </Link>
-          </div>
         </div>
-        
-        {/* Background Decorative Element */}
-        <div className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-brand-gold/10 blur-[100px]" />
-        <div className="absolute -left-20 -bottom-20 h-96 w-96 rounded-full bg-brand-accent/10 blur-[100px]" />
-      </section>
+        <Link
+          href={`/${locale}/cart`}
+          className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+        >
+          <ShoppingCart className="h-5 w-5" />
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-white">
+            0
+          </span>
+        </Link>
+      </div>
 
-      {/* Steps Section */}
-      <section>
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-slate-900">{t("stepsTitle")}</h2>
-          <div className="mt-2 h-1.5 w-20 bg-brand-gold mx-auto rounded-full" />
-        </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-          {steps.map((step, i) => (
-            <div
-              key={i}
-              className="group relative flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-8 text-center transition-all hover:border-brand-gold hover:shadow-xl hover:-translate-y-1"
-            >
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-brand transition-colors group-hover:bg-brand group-hover:text-white">
-                {step.icon}
-              </div>
-              <div className="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 border-2 border-white shadow-sm transition-all group-hover:bg-brand-gold group-hover:text-white">
-                {i + 1}
-              </div>
-              <p className="mt-4 text-sm font-medium text-slate-700 leading-snug">
-                {step.text}
-              </p>
+      {/* Category Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+              activeCategory === cat.id
+                ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Product Grid */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {filtered.map((product) => (
+          <Link
+            key={product.id}
+            href={`/${locale}/order`}
+            className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-all hover:shadow-xl hover:-translate-y-1"
+          >
+            {/* Image */}
+            <div className="relative aspect-square overflow-hidden bg-slate-100">
+              <img
+                src={product.image}
+                alt={product.title}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+              {/* Discount Badge */}
+              {product.discount && (
+                <div className="absolute left-2.5 top-2.5 rounded-lg bg-brand-accent px-2 py-1 text-xs font-bold text-white shadow-lg">
+                  {product.discount}% OFF
+                </div>
+              )}
+              {/* Heart Button */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleLike(product.id);
+                }}
+                className={`absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-md transition-all ${
+                  liked.has(product.id)
+                    ? "bg-brand-accent text-white"
+                    : "bg-white/80 text-slate-400 hover:text-brand-accent"
+                }`}
+              >
+                <Heart
+                  className="h-4 w-4"
+                  fill={liked.has(product.id) ? "currentColor" : "none"}
+                />
+              </button>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* Trust Quote / Stats */}
-      <section className="grid md:grid-cols-3 gap-8 border-t border-slate-200 pt-12">
-        <div className="text-center">
-          <div className="text-3xl font-black text-brand">10k+</div>
-          <div className="text-sm text-slate-500 uppercase tracking-widest mt-1">Orders Processed</div>
+            {/* Info */}
+            <div className="flex flex-1 flex-col p-3.5">
+              <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                {product.title}
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-400">{product.titleEn}</p>
+
+              {/* Rating */}
+              <div className="mt-2 flex items-center gap-1">
+                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                <span className="text-xs font-semibold text-slate-700">
+                  {product.rating}
+                </span>
+                <span className="text-xs text-slate-400">
+                  ({product.reviews})
+                </span>
+              </div>
+
+              {/* Price */}
+              <div className="mt-auto pt-2">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-base font-black text-slate-900">
+                    {formatKrw(product.price)}
+                  </span>
+                  {product.originalPrice && (
+                    <span className="text-xs text-slate-400 line-through">
+                      {formatKrw(product.originalPrice)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {filtered.length === 0 && (
+        <div className="py-20 text-center">
+          <p className="text-slate-400 text-lg">
+            해당 카테고리에 상품이 없습니다.
+          </p>
         </div>
-        <div className="text-center">
-          <div className="text-3xl font-black text-brand-accent">24h</div>
-          <div className="text-sm text-slate-500 uppercase tracking-widest mt-1">Inspection Avg.</div>
-        </div>
-        <div className="text-center">
-          <div className="text-3xl font-black text-brand">150+</div>
-          <div className="text-sm text-slate-500 uppercase tracking-widest mt-1">Countries Served</div>
-        </div>
-      </section>
+      )}
     </div>
   );
 }
-
