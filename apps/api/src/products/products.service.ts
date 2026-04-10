@@ -19,18 +19,18 @@ export class ProductsService {
   private static readonly CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
   async ingestByUrl(sourceUrl: string, mode: "fast" | "playwright" = "fast") {
-    // Cache only the fast-mode result; precise mode is opt-in and we want
-    // it to always re-fetch so users can retry blocked sites on demand.
-    if (mode === "fast") {
-      const cached = await this.prisma.product.findUnique({
-        where: { sourceUrl },
-      });
-      if (
-        cached &&
-        Date.now() - cached.createdAt.getTime() < ProductsService.CACHE_TTL_MS
-      ) {
-        return cached;
-      }
+    // Look up an existing row regardless of mode so we can update it on
+    // re-parse, but only honor the TTL cache in fast mode — precise mode is
+    // opt-in and should always re-fetch when the user asks for it.
+    const cached = await this.prisma.product.findUnique({
+      where: { sourceUrl },
+    });
+    if (
+      mode === "fast" &&
+      cached &&
+      Date.now() - cached.createdAt.getTime() < ProductsService.CACHE_TTL_MS
+    ) {
+      return cached;
     }
 
     const parsed = await this.parser.parse(sourceUrl, mode);

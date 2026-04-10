@@ -1,5 +1,5 @@
 // We buy K — data model
-// Phase 2~5 entities on MySQL 8. Status/role columns stay as plain strings
+// Phase 2~5 entities on PostgreSQL (Prisma Postgres). Status/role columns stay as plain strings
 // (validated at the app layer via Zod in @wbk/shared) so we can evolve allowed
 // values without a migration. Allowed values:
 //   Role:          USER | ADMIN
@@ -13,7 +13,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

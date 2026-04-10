@@ -99,7 +99,9 @@ export class VisionParser {
       title: String(parsed.title).slice(0, 200),
       imageUrl: parsed.imageUrl || undefined,
       priceKrw:
-        Number.isFinite(parsed.priceKrw) && parsed.priceKrw > 0
+        typeof parsed.priceKrw === "number" &&
+        Number.isFinite(parsed.priceKrw) &&
+        parsed.priceKrw > 0
           ? Math.round(parsed.priceKrw)
           : 0,
     };

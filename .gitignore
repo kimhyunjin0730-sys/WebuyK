@@ -3,6 +3,7 @@ dist
 .next
 .env
 .env.local
+env.yaml
 client_secret_*.json
 *.db
 *.db-journal
